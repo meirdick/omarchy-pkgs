@@ -2,11 +2,13 @@
 #
 # Speakers and microphone for the HP EliteBook X G2i (Panther Lake).
 #
-# The board pairs an RT712 SDCA codec with four TAS2783 smart amps. Two kernel
-# changes are needed to drive that combination and both ship in linux-ptl, the
-# same kernel this machine already installs for its other Panther Lake
-# backports: a Panther Lake ACPI match-table entry, and a component name for
-# the TAS2783A amp so the card advertises " spk:tas2783".
+# The board pairs an RT712 SDCA codec with four TAS2783 smart amps. The kernel
+# changes needed to drive that combination all ship in linux-ptl, the same
+# kernel this machine already installs for its other Panther Lake backports: a
+# Panther Lake ACPI match-table entry, a component name for the TAS2783A amp so
+# the card advertises " spk:tas2783", and the three-patch series that splits the
+# four-amp link across two PDIs so the speakers are stereo rather than four
+# copies of the left channel.
 #
 # With those in place stock alsa-ucm-conf does the rest, and this package is
 # only the userspace remainder:

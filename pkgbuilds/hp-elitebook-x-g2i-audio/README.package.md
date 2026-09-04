@@ -9,14 +9,21 @@ profile `off` with no usable sink.
 
 ## Where the fix actually lives
 
-Two of the three problems are kernel problems, and both are edits to files that
-already exist in the kernel. They ship as patches in `linux-ptl`, which this
+Most of the fix is kernel-side, and every piece is an edit to a file that
+already exists in the kernel. They ship as patches in `linux-ptl`, which this
 machine installs anyway for its other Panther Lake backports:
 
 | Patch | What it does |
 |---|---|
-| `0030-ASoC-Intel-soc-acpi-intel-ptl-add-HP-EliteBook-X-G2i` | Adds the match-table entry for the board's RT712 (link 3) + quad TAS2783A (link 2). Without it SOF falls back to a barebones machine driver and never instantiates the amps. |
-| `0031-ASoC-sdw_utils-set-a-component-name-for-the-TAS2783A` | Makes the card report `spk:tas2783` in `card->components`. Every other amp in `codec_info_list` already declares this; the TAS2783A did not, so UCM could not resolve a speaker configuration. |
+| `0050-ASoC-Intel-soc-acpi-intel-ptl-add-HP-EliteBook-X-G2i` | Adds the match-table entry for the board's RT712 (link 3) + quad TAS2783A (link 2). Without it SOF falls back to a barebones machine driver and never instantiates the amps. The array lists the amps L,R,L,R by physical side, which is load-bearing for stereo. |
+| `0051-ASoC-sdw_utils-set-a-component-name-for-the-TAS2783A` | Makes the card report `spk:tas2783` in `card->components`. Every other amp in `codec_info_list` already declares this; the TAS2783A did not, so UCM could not resolve a speaker configuration. Merged upstream as `79bec4638`; drop at the 7.2 rebase. |
+| `0061-soundwire-stream-append-ports-when-a-second-DAI-joins` | Stops a second DAI joining a stream from overwriting the first DAI's port config. Not board-specific. |
+| `0062-ASoC-Intel-sof_sdw-split-a-four-amp-TAS2783A-link` | Gives the amp dai_link two CPU pins, which selects the `sdca-2amp` topology. |
+| `0063-ASoC-tas2783-take-one-stream-channel-per-mono-amplifier` | `.set_tdm_slot` on tas2783, driven from the `tas2783-N` prefix by `asoc_sdw_ti_spk_rtd_init()`. |
+
+The last three are what make the machine stereo. Without them all four
+amplifiers receive the same channel and the speakers play mono-left — a state
+in which every check short of listening reports a healthy stereo card.
 
 Neither belongs in DKMS. A DKMS module that rebuilds `snd-soc-acpi-intel-match`
 has to carry a frozen copy of every Intel platform's match table, which silently
@@ -67,12 +74,14 @@ actually repaired something.
 The interim, in the same spirit as `dell-xps-touchpad-haptics`. Each of these
 retires a layer when it lands:
 
-| Piece | Real home |
-|---|---|
-| Match-table entry | Linux, `soc-acpi-intel-ptl-match.c` |
-| TAS2783A component name | Linux, `sound/soc/sdw_utils/soc_sdw_utils.c` |
-| Firmware naming | `linux-firmware` / `tas2783-sdw.c` |
-| Speaker device definition | `alsa-ucm-conf` |
+| Piece | Real home | Status |
+|---|---|---|
+| Match-table entry | Linux, `soc-acpi-intel-ptl-match.c` | not submitted |
+| TAS2783A component name | Linux, `sound/soc/sdw_utils/soc_sdw_utils.c` | merged, `79bec4638` |
+| Second-DAI port overwrite | Linux, `drivers/soundwire/stream.c` | not submitted; a general bug |
+| Two-PDI amp split | Linux, `sof_sdw.c` + `soc_sdw_ti_amp.c` | not submitted |
+| Firmware naming | `linux-firmware` / `tas2783-sdw.c` | partly merged, `e26bb459d` |
+| Speaker device definition | `alsa-ucm-conf` | not submitted |
 
 ## Scope
 
@@ -84,11 +93,17 @@ DMI SKU, and is an independent decision.
 ## Verifying
 
 ```bash
-amixer -c 0 info | grep Components         # expect " spk:tas2783"
-pactl list cards | grep 'Active Profile'   # expect HiFi
-wpctl status                               # expect a Speaker sink and a Mic source
+amixer -c 0 info | grep Components            # expect " spk:tas2783"
+pactl list cards | grep 'Active Profile'      # expect HiFi
+journalctl -k -b | grep -o 'sof-sdca-.amp'    # expect sdca-2amp, NOT sdca-1amp
+speaker-test -c 2 -t pink                     # left must come from the left
+wpctl status                                  # expect a Speaker sink and a Mic source
 journalctl --user -u hp-elitebook-x-g2i-audio-recover -b
 ```
+
+`sdca-1amp` means the two-PDI split did not take effect and the machine is
+playing mono out of all four speakers. That is a kernel-patch problem, not a
+tuning problem — do not go looking at levels.
 
 A reboot is required after install: the kernel side of the fix cannot apply to
 the running kernel.
