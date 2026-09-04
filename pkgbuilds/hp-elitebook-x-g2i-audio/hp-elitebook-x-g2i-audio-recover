@@ -140,6 +140,63 @@ repair_graph() {
   return 1
 }
 
+# The topology's speaker gain stages have min 0 = -90 dB, which is silence.
+# udev's alsactl re-applies asound.state on every card creation, so once a
+# zeroed state has been stored it comes back on every boot: every level looks
+# plausible, no error is logged anywhere, and the machine is mute. These are
+# the values measured working on this board; the perceptual voicing lives in
+# the Omarchy tuning chain, not here, so the guard never raises past them.
+SPK_PRE_GAIN=45
+SPK_POST_GAIN=27
+
+speaker_gain_guard() {
+  local card="$1" name val want
+  [ -n "$card" ] || return 0
+
+  for name in 'Pre Mixer Speaker Playback Volume' 'Post Mixer Speaker Playback Volume'; do
+    case "$name" in
+      Pre*)  want=$SPK_PRE_GAIN ;;
+      Post*) want=$SPK_POST_GAIN ;;
+    esac
+
+    val=$(amixer -c "$card" cget name="$name" 2>/dev/null |
+            awk -F= '/: values/ { split($2, a, ","); print a[1]; exit }')
+    [ -n "$val" ] || continue
+
+    # Only rescue the pathological case. Anything above zero is somebody's
+    # deliberate level and is left alone.
+    if [ "$val" -eq 0 ]; then
+      echo "speaker gain '$name' was 0 (-90 dB) - restoring to $want"
+      amixer -c "$card" cset name="$name" "$want,$want" >/dev/null 2>&1
+      # No alsactl store here: this runs as a user unit and the state file is
+      # root-owned. The guard runs on every boot, which is what makes it stick.
+      repaired=1
+    fi
+  done
+}
+
+tune_capture() {
+  local card="$1"
+  [ -n "$card" ] || return 0
+
+  # The TDFB beamformer comes up in a degraded state after boot: the control
+  # reads "on" while the array is not actually converged, and the noise floor
+  # sits about 20 dB higher than it should. Setting it to 1 when it already
+  # reads 1 is a no-op, so force a real re-init by toggling it off and back.
+  amixer -c "$card" cset name='Microphone Capture TDFB beam switch' 0 >/dev/null 2>&1
+  sleep 0.3
+  amixer -c "$card" cset name='Microphone Capture TDFB beam switch' 1 >/dev/null 2>&1
+
+  # Capture DRC pumps the noise floor rather than helping speech on this
+  # array. The beamformer already does the work.
+  amixer -c "$card" cset name='Microphone Capture DRC switch' 0 >/dev/null 2>&1
+
+  # The analogue boost stages are pure noise on this codec; the clean digital
+  # capture gain is the FU0F/FU1E volume, which PipeWire manages.
+  amixer -c "$card" cset name='rt712 FU15 Boost Volume' 0,0,0,0 >/dev/null 2>&1
+  amixer -c "$card" cset name='rt712 FU44 Boost Volume' 0,0 >/dev/null 2>&1
+}
+
 finish_up() {
   local card
   card=$(card_index)
@@ -151,6 +208,9 @@ finish_up() {
     amixer -c "$card" cset name='rt712 FU0F Capture Switch' on,on >/dev/null 2>&1
     amixer -c "$card" cset name='rt712 FU1E Capture Switch' on,on,on,on >/dev/null 2>&1
   fi
+
+  speaker_gain_guard "$card"
+  tune_capture "$card"
 
   # The shell latches audio state at start and its PipeWire subscription can be
   # dead after a restart down here, so the bar shows a stale mute or volume.
