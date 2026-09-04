@@ -31,15 +31,20 @@ name makes sof_test_topology_file() skip its existence check, so
 probing falls through to get_function_tplg_files() and the per-function
 topologies are loaded instead. The boot log confirms the intent:
 "Using function topologies instead".
----
- .../intel/common/soc-acpi-intel-ptl-match.c   | 114 ++++++++++++++++++
- 1 file changed, 114 insertions(+)
 
-diff --git a/sound/soc/intel/common/soc-acpi-intel-ptl-match.c b/sound/soc/intel/common/soc-acpi-intel-ptl-match.c
-index f7694b2..9ced983 100644
+The order of the amplifier array is load-bearing for stereo. The bus
+packs stream slots in codec-list order, and asoc_sdw_ti_spk_rtd_init()
+derives each part's side from its name_prefix, so the array lists the
+amplifiers left, right, left, right by physical side. On this board the
+enumerated unique ids run 0x9 and 0xA on the right and 0xC and 0xD on
+the left, so the order is 0xC, 0x9, 0xD, 0xA.
+
+Signed-off-by: Meir Dick <mdick85@gmail.com>
+---
+
 --- a/sound/soc/intel/common/soc-acpi-intel-ptl-match.c
 +++ b/sound/soc/intel/common/soc-acpi-intel-ptl-match.c
-@@ -92,6 +92,45 @@ static const struct snd_soc_acpi_endpoint spk_r_endpoint = {
+@@ -92,6 +92,45 @@
  	.group_id = 1,
  };
  
@@ -85,7 +90,7 @@ index f7694b2..9ced983 100644
  static const struct snd_soc_acpi_endpoint jack_dmic_endpoints[] = {
  	/* Jack Endpoint */
  	{
-@@ -211,6 +250,53 @@ static const struct snd_soc_acpi_adr_device rt712_vb_3_group1_adr[] = {
+@@ -211,6 +250,66 @@
  	}
  };
  
@@ -108,28 +113,41 @@ index f7694b2..9ced983 100644
 + * asoc_sdw_ti_spk_rtd_init() in sound/soc/sdw_utils/soc_sdw_ti_amp.c,
 + * which strncmp()s these literal strings and returns -EINVAL /
 + * "unhandled prefix" for anything else, aborting card registration).
++ *
++ * The order of this array is load-bearing. asoc_sdw_ti_spk_rtd_init()
++ * reads the sides straight off the prefixes - "tas2783-1" and
++ * "tas2783-3" are left, "tas2783-2" and "tas2783-4" are right - and
++ * gives each part that channel through .set_tdm_slot. The SoundWire bus
++ * packs stream slots in this same order, so listing the amplifiers
++ * left, right, left, right by PHYSICAL side is what makes each part's
++ * slot carry its own side.
++ *
++ * On this board the enumerated unique ids sit the other way round:
++ *   0x9 = right woofer   0xA = right tweeter
++ *   0xC = left woofer    0xD = left tweeter
++ * hence the order 0xC, 0x9, 0xD, 0xA below.
 + */
 +static const struct snd_soc_acpi_adr_device tas2783_2_quad_adr[] = {
 +	{
-+		.adr = 0x0002390102000001ull,
++		.adr = 0x00023C0102000001ull,	/* uid 0xC, left woofer */
 +		.num_endpoints = 1,
 +		.endpoints = &spk_l_endpoint,
 +		.name_prefix = "tas2783-1"
 +	},
 +	{
-+		.adr = 0x00023A0102000001ull,
++		.adr = 0x0002390102000001ull,	/* uid 0x9, right woofer */
 +		.num_endpoints = 1,
 +		.endpoints = &spk_r_endpoint,
 +		.name_prefix = "tas2783-2"
 +	},
 +	{
-+		.adr = 0x00023C0102000001ull,
++		.adr = 0x00023D0102000001ull,	/* uid 0xD, left tweeter */
 +		.num_endpoints = 1,
 +		.endpoints = &spk_2_endpoint,
 +		.name_prefix = "tas2783-3"
 +	},
 +	{
-+		.adr = 0x00023D0102000001ull,
++		.adr = 0x00023A0102000001ull,	/* uid 0xA, right tweeter */
 +		.num_endpoints = 1,
 +		.endpoints = &spk_3_endpoint,
 +		.name_prefix = "tas2783-4"
@@ -139,7 +157,7 @@ index f7694b2..9ced983 100644
  static const struct snd_soc_acpi_adr_device rt713_vb_2_adr[] = {
  	{
  		.adr = 0x000230025d071301ull,
-@@ -423,6 +509,21 @@ static const struct snd_soc_acpi_link_adr ptl_sdw_rt712_vb_l3_rt1320_l2[] = {
+@@ -423,6 +522,21 @@
  	{}
  };
  
@@ -161,11 +179,10 @@ index f7694b2..9ced983 100644
  static const struct snd_soc_acpi_link_adr ptl_sdw_rt712_vb_l3_rt1320_l3[] = {
  	{
  		.mask = BIT(3),
-@@ -510,6 +611,19 @@ struct snd_soc_acpi_mach snd_soc_acpi_intel_ptl_sdw_machines[] = {
- 		.sof_tplg_filename = "sof-ptl-rt712-l3-rt1320-l2.tplg",
+@@ -511,6 +625,19 @@
  		.get_function_tplg_files = sof_sdw_get_tplg_files,
  	},
-+	{
+ 	{
 +		.link_mask = BIT(2) | BIT(3),
 +		.links = ptl_sdw_rt712_l3_tas2783_l2,
 +		.drv_name = "sof_sdw",
@@ -178,6 +195,7 @@ index f7694b2..9ced983 100644
 +		.sof_tplg_filename = "sof-ptl-rt712-l3-tas2783-l2-dummy.tplg",
 +		.get_function_tplg_files = sof_sdw_get_tplg_files,
 +	},
- 	{
++	{
  		.link_mask = BIT(2) | BIT(3),
  		.links = ptl_cs42l43_agg_l3_cs35l56_l2,
+ 		.drv_name = "sof_sdw",
