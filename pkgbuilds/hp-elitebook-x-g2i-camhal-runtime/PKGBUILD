@@ -79,6 +79,11 @@ depends=(
   'gstreamer'
   'gst-plugins-base-libs'
   'expat'
+  # The HAL plugin links libjsoncpp by soname. A jsoncpp soname bump
+  # (1.9.6 -> 1.9.8 moved .so.26 -> .so.27 on 2026-09-03) breaks the
+  # plugin load silently and the camera drops to SoftISP; the only
+  # symptom is engine=softisp-fallback in the daemon log. Rebuild this
+  # package after any jsoncpp major update.
   'jsoncpp'
   'libdrm'
 )
