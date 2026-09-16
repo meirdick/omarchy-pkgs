@@ -3,7 +3,7 @@
 
 pkgbase=linux-ptl
 pkgver=7.2.3.arch1
-pkgrel=4
+pkgrel=5
 pkgdesc='Linux for Panther Lake with Panel Replay power, OLED VRR and HP EliteBook X G2i audio and camera fixes'
 url='https://github.com/archlinux/linux'
 arch=(
@@ -59,6 +59,7 @@ source=(
   0064-ASoC-tas2783-keep-the-firmware-image-for-re-initialis.patch
   0065-ASoC-tas2783-read-factory-calibration-from-every-ven.patch
   0066-platform-x86-int3472-50-ms-handshake-delay-for-the-ov05c1.patch
+  0067-ASoC-tas2783-do-not-fail-runtime-resume-on-a-periphe.patch
 )
 source_x86_64=(config.x86_64)
 validpgpkeys=(
@@ -88,7 +89,8 @@ b2sums=('a1d10f1b4422f55c9c87fec0d319fd3dfaf8992f40f9c3d6da1d74e6e78ef220c24cdcd
         'e43288e7881222564e74800a40adfb1fc83dbdb278268788cd5f248adab889da74b718dbb89995d75e84cc60246aa1f17c047d64b76a433ae68c131ad4991c87'
         '6ea62230ed5b4bbade00c637d50aef6edf0612faf04d0571c3eabab860180a93210789d53b9d08ed72b04d87423778e23a011219511890e3a7f85d37038f9479'
         '560d45340fd9ab2c820e2ae6ab77690af5766880a9f9bc34bd0a46017de7e1f2eb0d6b81480d0d6aafb1343916c11a82fe470bacdd2396286d63c9aac5bc7290'
-        '5cdd99b6b3c2974bcc05b1eb648a5322d6941a2a5a5d2862a2a2e4250aa23958869315745daaad3a9e5aa2db3408717ce59a9623274864e7ffd1ae6287053e34')
+        '5cdd99b6b3c2974bcc05b1eb648a5322d6941a2a5a5d2862a2a2e4250aa23958869315745daaad3a9e5aa2db3408717ce59a9623274864e7ffd1ae6287053e34'
+        'eb00f19a32ad7c06b599aad97e3bd9244d60def2e3a26a5b79cb77012bf8879be30bfd0acd44810e056a414d84405ab06d34f744caeefa8c659bd61bc3cee0b6')
 b2sums_x86_64=('da56ce9b2f28b75436c52afbc16913027796d98b467575920d82e15fb626689438e69cc07fedde77a96f2cb2ce10b510a873c43f43105ccec9a44e656b0624e1')
 
 # https://www.kernel.org/pub/linux/kernel/v7.x/sha256sums.asc
@@ -114,7 +116,8 @@ sha256sums=('8ba259e8e7b13ec6ef0941c8a39ad90b24bd4a4d6c0010ba6bafb794550ecd03'
             '4c917e074b06ff199435f72ba48c7616be77059ecf33ddbd4ce6b2463f841806'
             '9c7d5babab68f04f93816dfa7c4ab8d7a27d5377425717cb66deec40e1e9c75c'
             'fa49109ffc0380d0589f7fed9a9847cf067eb494df4af06063d86e7fefaa2af4'
-            'f0c3cfd2204ec071e9b244db5c91dea73701b82f86c32560bba42182c201e4c8')
+            'f0c3cfd2204ec071e9b244db5c91dea73701b82f86c32560bba42182c201e4c8'
+            '5a879c188745b6138e874dd3905355dc628b4d1026e06e27b5bcca8f162e164b')
 
 export KBUILD_BUILD_HOST=archlinux
 export KBUILD_BUILD_USER=$pkgbase

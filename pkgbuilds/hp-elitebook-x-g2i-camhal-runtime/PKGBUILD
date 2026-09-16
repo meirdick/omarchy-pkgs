@@ -56,7 +56,7 @@
 
 pkgname=hp-elitebook-x-g2i-camhal-runtime
 pkgver=20260327_1
-pkgrel=1
+pkgrel=2
 pkgdesc="Pinned Intel IPU7 CamHAL runtime for HP EliteBook X G2i (OV05C10), private prefix"
 arch=('x86_64')
 url="https://github.com/intel/ipu7-camera-hal"
